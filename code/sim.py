@@ -4,10 +4,10 @@ from utils import read_a_mat, read_q_mat
 import pandas as pd
 from keras.models import Sequential
 from keras.layers import Dense, Activation
+from typing import Callable
 
 
-# Assuming sys_param is a dictionary containing the system parameters
-sys_param = {"lsv": np.array([[0, 0, 100], [1, 0, 200]])}  # This is just a placeholder
+sys_param = {}
 
 
 def storage_to_level(s: float, sys_param: dict) -> float:
@@ -56,26 +56,37 @@ def sim_ann(M: np.ndarray, n: int, theta: np.ndarray, n_type: str) -> np.ndarray
     - output: np.ndarray, the output data."""
 
     model = Sequential()
-    model.add(Dense(n, input_dim=M.shape[0], activation=n_type))
+    model.add(
+        Dense(
+            n, input_dim=M.shape[0], activation="tanh" if n_type == "tansig" else n_type
+        )
+    )
     model.add(Dense(1, activation="linear"))
 
-    # Flatten theta and use it as weights
-    flat_theta = theta.flatten()
-    model.set_weights(flat_theta)
+    # Reshape theta to match the structure of the model's weights
+    weights = [
+        theta[: n * M.shape[0]].reshape(M.shape[0], n),
+        theta[n * M.shape[0] : n * (M.shape[0] + 1)],
+        theta[n * (M.shape[0] + 1) : -1].reshape(n, 1),
+        theta[-1:].reshape(
+            1,
+        ),
+    ]
+    model.set_weights(weights)
 
     # Assuming M is your input data
     output = model.predict(M.T)  # Keras models expect input as (N, r)
     return output.flatten()
 
 
-def sim_hb(qq: dict, h_in: float, policy: str, sys_param: dict) -> tuple[np.ndarray]:
+def sim_hb(qq: dict, h_in: float, policy: tuple, sys_param: dict) -> tuple[np.ndarray]:
     """
     Function to simulate the Hoa Binh reservoir.
 
     Parameters:
     - qq: dict, a dictionary containing the streamflow data.
     - h_in: float, the initial water level.
-    - policy: str, the operating policy.
+    - policy: tuple, the operating policy.
     - sys_param: dict, the system parameters.
 
     Returns:
@@ -100,7 +111,7 @@ def sim_hb(qq: dict, h_in: float, policy: str, sys_param: dict) -> tuple[np.ndar
 
     for t in range(H):
         u[t] = std_operating_policy(h[t], policy)
-        s[t + 1], r[t + 1] = mass_balance(s[t], u[t], q_sim[t + 1], sys_param)
+        s[t + 1], r[t + 1] = mass_balance(s[t], u[t], q_sim[t + 1])
         h[t + 1] = storage_to_level(s[t + 1], sys_param)
 
     # ANN based routing to estimate water level in Hanoi
@@ -108,10 +119,12 @@ def sim_hb(qq: dict, h_in: float, policy: str, sys_param: dict) -> tuple[np.ndar
     q_VQ_sim = np.append(np.nan, qq["q_VQ"])
     M = np.vstack((r, q_YB_sim, q_VQ_sim)).T
     N = M.shape[0]
+
     # Normalize inputs
-    M = (M - sys_param["sh"]["min_input"]) / (
-        sys_param["sh"]["max_input"] - sys_param["sh"]["min_input"]
+    M = (M - np.array(sys_param["sh"]["min_input"])) / (
+        np.array(sys_param["sh"]["max_input"]) - np.array(sys_param["sh"]["min_input"])
     )
+
     # ANN model to estimate water level
     ht_HN = sim_ann(
         M.T,
@@ -134,7 +147,7 @@ def model_setup(
     path_a_hoabinh_K: str,
     path_q_yenbai: str,
     path_q_vuquang: str,
-):
+) -> dict:
     """
     Function to setup the model for simulation.
 
@@ -157,15 +170,19 @@ def model_setup(
     q_vuquang: pd.DataFrame = read_q_mat(path_q_vuquang)
 
     # Extract relevant data based on dates
-    a = a_hoabinh_K.loc[ini_date_m:fin_date_m, "streamflow_[m3/s]"].values
-    q_YB = q_yenbai.loc[ini_date_m:fin_date_m, "streamflow_[m3/s]"].values
-    q_VQ = q_vuquang.loc[ini_date_m:fin_date_m, "streamflow_[m3/s]"].values
+    a = a_hoabinh_K[ini_date_m:fin_date_m]
+    q_YB = q_yenbai[ini_date_m:fin_date_m]
+    q_VQ = q_vuquang[ini_date_m:fin_date_m]
 
     qq = {"q_Da": a, "q_YB": q_YB, "q_VQ": q_VQ}
 
     # Load reservoir and downstream model parameters
-    sys_param["lsv"] = np.loadtxt("lsv_rel_HoaBinh.txt").T
-    sys_param["maxRel"] = np.loadtxt("max_release_HoaBinh.txt").T
+    sys_param["lsv"] = np.loadtxt(
+        "/Users/cooper/Desktop/optimal-wat-allocation/Script/MAT_data/lsv_rel_HoaBinh.txt"
+    ).T
+    sys_param["maxRel"] = np.loadtxt(
+        "/Users/cooper/Desktop/optimal-wat-allocation/Script/MAT_data/max_release_HoaBinh.txt"
+    ).T
     sys_param["sh"] = {
         "min_input": [0, 0, 0],
         "max_input": [58315, 31164, 36917],
@@ -173,40 +190,54 @@ def model_setup(
         "max_output": [15, 25900],
     }
     sys_param["hanoi"] = {
-        "theta": np.loadtxt("HN_theta_n8_m0.txt"),
+        "theta": np.loadtxt(
+            "/Users/cooper/Desktop/optimal-wat-allocation/Script/MAT_data/HN_theta_n8_m0.txt"
+        ),
         "neuron": 8,
         "neuron_type": "tansig",
     }
 
     sys_param["warmup"] = 62  # first day to compute objective functions
 
-    return qq
+    return qq, sys_param
 
 
 def interp_lin_scalar(x: float, y: float, new_x: float) -> float:
+    """
+    Function to interpolate linearly a scalar value.
+
+    Parameters:
+    - x: float, the x values.
+    - y: float, the y values.
+    - new_x: float, the new x value.
+
+    Returns:
+    - interpolation_function(new_x): float, the interpolated value."""
+
     interpolation_function = interp1d(x, y, kind="linear", fill_value="extrapolate")
     return interpolation_function(new_x)
 
 
-def min_release(s: float, storage_to_level: callable, max_release: callable) -> float:
+def min_release(s: float, sys_param: dict) -> float:
     """
     Function to compute the minimum release.
 
     Parameters:
     - s: float, the storage value.
-    - storage_to_level: callable, the function to convert storage to water level.
-    - max_release: callable, the function to compute the maximum release.
+    - sys_param: dict, the system parameters.
 
     Returns:
     - q: float, the minimum release."""
 
-    h = storage_to_level(s)
+    h = storage_to_level(s, sys_param)
 
     if h > 117.3:
-        q = max_release(s)
+        q = max_release(s, sys_param)
     elif h >= 117.0:
         q = interp_lin_scalar(
-            [117.0, 117.3], [0, max_release(storage_to_level(117.3))], h
+            [117.0, 117.3],
+            [0, max_release(storage_to_level(117.3, sys_param), sys_param)],
+            h,
         )
     else:
         q = 0.0
@@ -214,14 +245,14 @@ def min_release(s: float, storage_to_level: callable, max_release: callable) -> 
     return q
 
 
-def max_release(s: float, sys_param: dict, storage_to_level: callable) -> float:
+def max_release(s: float, sys_param: dict) -> float:
     """
     Function to compute the maximum release.
 
     Parameters:
     - s: float, the storage value.
     - sys_param: dict, the system parameters.
-    - storage_to_level: callable, the function to convert storage to water level.
+    - storage_to_level: Callable, the function to convert storage to water level.
 
     Returns:
     - V: float, the maximum release."""
@@ -237,8 +268,6 @@ def mass_balance(
     s: float,
     u: float,
     q: float,
-    min_release: callable[[float], float],
-    max_release: callable[[float], float],
 ) -> tuple[float, float]:
     """
     Function to compute the mass balance.
@@ -247,8 +276,6 @@ def mass_balance(
     - s: float, the storage value.
     - u: float, the release.
     - q: float, the inflow.
-    - min_release: callable, the function to compute the minimum release.
-    - max_release: callable, the function to compute the maximum release.
 
     Returns:
     - s1: float, the new storage value.
@@ -261,8 +288,8 @@ def mass_balance(
 
     s_[0] = s
     for i in range(HH):
-        qm = min_release(s_[i])
-        qM = max_release(s_[i])
+        qm = min_release(s_[i], sys_param)
+        qM = max_release(s_[i], sys_param)
         r_[i + 1] = min(qM, max(qm, u))
         s_[i + 1] = s_[i] + delta * (q - r_[i + 1])
 
@@ -271,14 +298,27 @@ def mass_balance(
     return s1, r1
 
 
-def std_operating_policy(h, policy):
-    if policy == "fixed":
-        u = 2000
-    elif policy == "rule":
-        if h < 117.0:
-            u = 0
-        elif h < 117.3:
-            u = 2000 * (h - 117.0) / 0.3
-        else:
-            u = 2000
+def std_operating_policy(h: float, policy: tuple) -> float:
+    """
+    Function to implement the standard operating policy.
+
+    Parameters:
+    - h: float, the water level.
+    - policy: tuple, the operating policy.
+
+    Returns:
+    - u: float, the release."""
+
+    h1, h2, m1, m2, w = policy
+
+    m1 = np.tan(np.radians(m1))
+    m2 = np.tan(np.radians(m2))
+
+    if h >= h1 and h < h2:
+        u = w
+    elif h >= h2:
+        u = w + m2 * (h - h2)
+    else:
+        u = max(0, m1 * (h - h1))
+
     return u
