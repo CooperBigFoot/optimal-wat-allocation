@@ -38,7 +38,7 @@ def read_q_mat(path: str) -> pd.DataFrame:
     return df
 
 
-def load_a_mat(path: str) -> pd.DataFrame:
+def read_a_mat(path: str) -> pd.DataFrame:
     """
     Function to load the a_hoabinh_K.mat file into a DataFrame.
 
