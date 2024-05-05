@@ -202,20 +202,30 @@ def model_setup(
     return qq, sys_param
 
 
-def interp_lin_scalar(x: float, y: float, new_x: float) -> float:
+def interp_lin_scalar(x: np.ndarray, y: np.ndarray, new_x: float) -> float:
     """
-    Function to interpolate linearly a scalar value.
+    Performs linear interpolation for a scalar.
 
     Parameters:
-    - x: float, the x values.
-    - y: float, the y values.
-    - new_x: float, the new x value.
+    - x: np.ndarray, array of x-coordinates (independent variables).
+    - y: np.ndarray, array of y-coordinates (dependent variables).
+    - new_x: float, the x-value to interpolate.
 
     Returns:
-    - interpolation_function(new_x): float, the interpolated value."""
+    - new_y: float, the interpolated y-value.
+    """
+    # Ensure that x and y are numpy arrays for interp1d compatibility
+    x = np.array(x)
+    y = np.array(y)
 
+    # Create interpolation function
     interpolation_function = interp1d(x, y, kind="linear", fill_value="extrapolate")
-    return interpolation_function(new_x)
+
+    # Use the interpolation function to find the interpolated value
+    new_y = interpolation_function(new_x)
+
+    # Return the interpolated value as a scalar
+    return new_y.item()
 
 
 def min_release(s: float, sys_param: dict) -> float:
@@ -298,21 +308,25 @@ def mass_balance(
     return s1, r1
 
 
-def std_operating_policy(h: float, policy: tuple) -> float:
+def std_operating_policy(h: float, policy: tuple, debug: bool = False) -> float:
     """
     Function to implement the standard operating policy.
 
     Parameters:
     - h: float, the water level.
     - policy: tuple, the operating policy.
+    - debug: bool, whether to print the policy.
 
     Returns:
     - u: float, the release."""
 
     h1, h2, m1, m2, w = policy
 
-    m1 = np.tan(np.radians(m1))
-    m2 = np.tan(np.radians(m2))
+    if debug:
+        print(h1, h2, m1, m2, w)
+
+    m1 = np.tan(m1)
+    m2 = np.tan(m2)
 
     if h >= h1 and h < h2:
         u = w
