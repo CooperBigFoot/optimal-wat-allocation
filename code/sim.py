@@ -147,7 +147,7 @@ def model_setup(
     path_a_hoabinh_K: str,
     path_q_yenbai: str,
     path_q_vuquang: str,
-) -> dict:
+) -> tuple[dict, dict]:
     """
     Function to setup the model for simulation.
 
@@ -159,7 +159,8 @@ def model_setup(
     - path_q_vuquang: str, the path to the q_vuquang.mat file.
 
     Returns:
-    - qq: dict, a dictionary containing the streamflow data."""
+    - qq: dict, a dictionary containing the streamflow data.
+    - sys_param: dict, the system parameters."""
 
     ini_date_m = pd.to_datetime(ini_date)
     fin_date_m = pd.to_datetime(fin_date)
