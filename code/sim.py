@@ -100,10 +100,10 @@ def sim_hb(qq: dict, h_in: float, policy: tuple, sys_param: dict) -> tuple[np.nd
     H = len(q_sim) - 1
 
     # Initialization
-    h = np.full(q_sim.shape, np.nan)
-    s = np.full(q_sim.shape, np.nan)
-    r = np.full(q_sim.shape, np.nan)
-    u = np.full(q_sim.shape, np.nan)
+    h = np.full(H+1, np.nan)
+    s = np.full(H+1, np.nan)
+    r = np.full(H+1, np.nan)
+    u = np.full(H+1, np.nan)
 
     # Start simulation
     h[0] = h_in
