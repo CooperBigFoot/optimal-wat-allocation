@@ -72,9 +72,9 @@ def sim_ann(M: np.ndarray, n: int, theta: np.ndarray, n_type: str) -> np.ndarray
             1,
         ),
     ]
+
     model.set_weights(weights)
 
-    # Assuming M is your input data
     output = model.predict(M.T)  # Keras models expect input as (N, r)
     return output.flatten()
 
@@ -100,10 +100,10 @@ def sim_hb(qq: dict, h_in: float, policy: tuple, sys_param: dict) -> tuple[np.nd
     H = len(q_sim) - 1
 
     # Initialization
-    h = np.full(H+1, np.nan)
-    s = np.full(H+1, np.nan)
-    r = np.full(H+1, np.nan)
-    u = np.full(H+1, np.nan)
+    h = np.full(H + 1, np.nan)
+    s = np.full(H + 1, np.nan)
+    r = np.full(H + 1, np.nan)
+    u = np.full(H + 1, np.nan)
 
     # Start simulation
     h[0] = h_in
@@ -111,19 +111,25 @@ def sim_hb(qq: dict, h_in: float, policy: tuple, sys_param: dict) -> tuple[np.nd
 
     for t in range(H):
         u[t] = std_operating_policy(h[t], policy)
-        s[t + 1], r[t + 1] = mass_balance(s[t], u[t], q_sim[t + 1])
+        s[t + 1], r[t + 1] = mass_balance(s[t], u[t], q_sim[t + 1], sys_param)
         h[t + 1] = storage_to_level(s[t + 1], sys_param)
+
+        # print(f"t = {t}, h = {h[t]}, u = {u[t]}, r = {r[t]}")
 
     # ANN based routing to estimate water level in Hanoi
     q_YB_sim = np.append(np.nan, qq["q_YB"])
     q_VQ_sim = np.append(np.nan, qq["q_VQ"])
     M = np.vstack((r, q_YB_sim, q_VQ_sim)).T
+
+    print(f"M: {M[:10]}")
     N = M.shape[0]
 
     # Normalize inputs
     M = (M - np.array(sys_param["sh"]["min_input"])) / (
         np.array(sys_param["sh"]["max_input"]) - np.array(sys_param["sh"]["min_input"])
     )
+
+    print(f"M after normalization: {M[:10]}")
 
     # ANN model to estimate water level
     ht_HN = sim_ann(
@@ -132,6 +138,7 @@ def sim_hb(qq: dict, h_in: float, policy: tuple, sys_param: dict) -> tuple[np.nd
         sys_param["hanoi"]["theta"],
         sys_param["hanoi"]["neuron_type"],
     ).T
+
     # Scale outputs
     ht_HN = (
         ht_HN * (sys_param["sh"]["max_output"][0] - sys_param["sh"]["min_output"][0])
@@ -203,30 +210,44 @@ def model_setup(
     return qq, sys_param
 
 
-def interp_lin_scalar(x: np.ndarray, y: np.ndarray, new_x: float) -> float:
+def interp_lin_scalar(X: np.ndarray, Y: np.ndarray, x: float) -> float:
     """
-    Performs linear interpolation for a scalar.
+    Function to perform linear interpolation for a scalar.
 
     Parameters:
-    - x: np.ndarray, array of x-coordinates (independent variables).
-    - y: np.ndarray, array of y-coordinates (dependent variables).
-    - new_x: float, the x-value to interpolate.
+    - X: np.ndarray, the independent variables.
+    - Y: np.ndarray, the dependent variables.
+    - x: float, the scalar.
 
     Returns:
-    - new_y: float, the interpolated y-value.
+    - y: float, the interpolated value.
     """
-    # Ensure that x and y are numpy arrays for interp1d compatibility
-    x = np.array(x)
-    y = np.array(y)
 
-    # Create interpolation function
-    interpolation_function = interp1d(x, y, kind="linear", fill_value="extrapolate")
+    # Handle edge cases
+    if x <= X[0]:
+        return Y[0]
+    if x >= X[-1]:
+        return Y[-1]
 
-    # Use the interpolation function to find the interpolated value
-    new_y = interpolation_function(new_x)
+    # Find index 'k' of subinterval [X[k], X[k+1]] s.t. X[k] <= x < X[k+1]
+    i = np.argmin(np.abs(X - x))
 
-    # Return the interpolated value as a scalar
-    return new_y.item()
+    # If X[i] == x then y = Y[i]
+    if X[i] == x:
+        return Y[i]
+
+    # Else if X[i] < x then k = i, if X[i] > x then k = i - 1
+    k = i - (X[i] > x)
+
+    # Line joining points (X[k], Y[k]) and (X[k+1], Y[k+1])
+    Dy = Y[k + 1] - Y[k]
+    Dx = X[k + 1] - X[k]
+    m = Dy / Dx  # slope
+
+    # Interpolate
+    y = Y[k] + m * (x - X[k])
+
+    return y
 
 
 def min_release(s: float, sys_param: dict) -> float:
@@ -245,11 +266,7 @@ def min_release(s: float, sys_param: dict) -> float:
     if h > 117.3:
         q = max_release(s, sys_param)
     elif h >= 117.0:
-        q = interp_lin_scalar(
-            [117.0, 117.3],
-            [0, max_release(storage_to_level(117.3, sys_param), sys_param)],
-            h,
-        )
+        q = max_release(117.3, sys_param) / (117.3 - 117.0) * (h - 117.0)
     else:
         q = 0.0
 
@@ -275,11 +292,7 @@ def max_release(s: float, sys_param: dict) -> float:
     return V
 
 
-def mass_balance(
-    s: float,
-    u: float,
-    q: float,
-) -> tuple[float, float]:
+def mass_balance(s: float, u: float, q: float, sys_param: dict) -> tuple[float, float]:
     """
     Function to compute the mass balance.
 
@@ -287,6 +300,7 @@ def mass_balance(
     - s: float, the storage value.
     - u: float, the release.
     - q: float, the inflow.
+    - sys_param: dict, the system parameters.
 
     Returns:
     - s1: float, the new storage value.
@@ -334,6 +348,6 @@ def std_operating_policy(h: float, policy: tuple, debug: bool = False) -> float:
     elif h >= h2:
         u = w + m2 * (h - h2)
     else:
-        u = max(0, m1 * (h - h1))
+        u = max(0, w + m1 * (h - h1))
 
     return u
