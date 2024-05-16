@@ -72,3 +72,4 @@ def read_a_mat(path: str) -> pd.DataFrame:
     df.rename(columns={"Value": "Streamflow_[m3/s]"}, inplace=True)
 
     return df
+

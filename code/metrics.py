@@ -28,28 +28,34 @@ def compute_zt(rt: pd.Series) -> pd.Series:
     )
 
 
-def OF_hydro(qt: pd.Series, rt: pd.Series, ht: pd.Series) -> float:
+def OF_hydro(
+    inflow: pd.Series, release: pd.Series, reservoir_level: pd.Series
+) -> float:
     """
     Objective function for hydropower production.
 
     Parameters:
-    - qt: array of inflow to the reservoir
-    - rt: array of reservoir release
-    - ht: array of reservoir level
+    - inflow: array of inflow to the reservoir
+    - release: array of reservoir release
+    - WaterLevelHanoi: array of reservoir level
 
     Returns:
     - J_HP: float, the objective function value. [GWh/day]
     """
 
-    H = len(qt)
-    zt = compute_zt(rt)
+    H = len(inflow)
+    zt = compute_zt(release)
 
-    Pt = np.zeros_like(qt)
+    Pt = np.zeros_like(inflow)
 
-    for i in range(len(qt)):
+    for i in range(len(inflow)):
 
-        q_T = min(Q_MAX_T, max(Q_MIN_T, rt.iloc[i])) if rt.iloc[i] >= Q_MIN_T else 0
-        delta_ht = ht.iloc[i] - zt[i]
+        q_T = (
+            min(Q_MAX_T, max(Q_MIN_T, release.iloc[i]))
+            if release.iloc[i] >= Q_MIN_T
+            else 0
+        )
+        delta_ht = reservoir_level.iloc[i] - zt[i]
 
         eta_t = ETA_NOM * (
             -0.000747602341932219 * (delta_ht**2)
@@ -61,23 +67,23 @@ def OF_hydro(qt: pd.Series, rt: pd.Series, ht: pd.Series) -> float:
 
     J_HP = np.sum(Pt) / H
 
-    return round(J_HP / 1_000_000 ,2)  # Convert to GWh/day
+    return round(J_HP / 1_000_000, 2)  # Convert to GWh/day
 
 
-def OF_flood(ht_HN: pd.Series) -> float:
+def OF_flood(WaterLevelHanoi: pd.Series) -> float:
     """
     Objective function for flood control.
 
     Parameters:
-    - ht_HN: array of water level in Hanoi
+    - WaterLevelHanoi: array of water level in Hanoi
 
     Returns:
     - J_flo: float, the objective function value.
     """
 
-    H = len(ht_HN)
+    H = len(WaterLevelHanoi)
 
-    Ft = np.where(ht_HN > H_F, (ht_HN - H_F) ** 2, 0)
+    Ft = np.where(WaterLevelHanoi > H_F, (WaterLevelHanoi - H_F) ** 2, 0)
     J_flo = np.sum(Ft) / H
 
-    return round(J_flo,2)
+    return round(J_flo, 2)
