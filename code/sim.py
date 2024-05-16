@@ -186,10 +186,10 @@ def model_setup(
 
     # Load reservoir and downstream model parameters
     sys_param["lsv"] = np.loadtxt(
-        "/Users/cooper/Desktop/optimal-wat-allocation/Script/MAT_data/lsv_rel_HoaBinh.txt"
+        "/Users/cooper/Desktop/optimal-wat-allocation/data/lsv_rel_HoaBinh.txt"
     ).T
     sys_param["maxRel"] = np.loadtxt(
-        "/Users/cooper/Desktop/optimal-wat-allocation/Script/MAT_data/max_release_HoaBinh.txt"
+        "/Users/cooper/Desktop/optimal-wat-allocation/data/max_release_HoaBinh.txt"
     ).T
     sys_param["sh"] = {
         "min_input": [0, 0, 0],
@@ -199,7 +199,7 @@ def model_setup(
     }
     sys_param["hanoi"] = {
         "theta": np.loadtxt(
-            "/Users/cooper/Desktop/optimal-wat-allocation/Script/MAT_data/HN_theta_n8_m0.txt"
+            "/Users/cooper/Desktop/optimal-wat-allocation/data/HN_theta_n8_m0.txt"
         ),
         "neuron": 8,
         "neuron_type": "tansig",
