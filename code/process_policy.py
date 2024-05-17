@@ -20,7 +20,7 @@ def plot_policy(
     sys_params: dict,
     output_destination: str = None,
     names: list[str] = None,
-):
+) -> None:
     """
     Function to plot the policies.
 
