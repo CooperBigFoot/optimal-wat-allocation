@@ -39,8 +39,14 @@ def plot_policy(
     max_releases = [max_release(s, sys_params) for s in s_levels]
     min_releases = [min_release(s, sys_params) for s in s_levels]
 
-    sns.set_context("paper", font_scale=1.4)
-    fig = plt.figure(figsize=(10, 6))
+
+    fig = plt.figure(figsize=(12, 8))
+    plt.rc("font", size=14)  # Default font size
+    plt.rc("axes", titlesize=14)  # Title font size
+    plt.rc("axes", labelsize=14)  # Axes labels font size
+    plt.rc("xtick", labelsize=14)  # X-tick labels font size
+    plt.rc("ytick", labelsize=14)  # Y-tick labels font size
+    plt.rc("legend", fontsize=14)  # Legend font size
 
     for i, policy in enumerate(policies):
         policy_release = [
@@ -110,9 +116,8 @@ def plot_policy_ts(
     - None
     """
 
-    sns.set_context("paper", font_scale=1.4)
-    fig = plt.figure(figsize=(18, 10))
 
+    fig = plt.figure(figsize=(12, 8))
     layout = (2, 2)
     ax_ReservoirLevel = plt.subplot2grid(layout, (0, 0), colspan=2)
     ax_Release = plt.subplot2grid(layout, (1, 0), colspan=1)
@@ -120,9 +125,7 @@ def plot_policy_ts(
 
     for policy, name in zip(policies, names):
         ax_ReservoirLevel.plot(
-            policy.index,
-            policy["ReservoirLevel"],
-            label=f"Reservoir Level: {name}"
+            policy.index, policy["ReservoirLevel"], label=f"Reservoir Level: {name}"
         )
         ax_Release.plot(
             policy.index, policy["Release"], label=f"Release: {name}", alpha=0.7
@@ -144,7 +147,7 @@ def plot_policy_ts(
     ax_Release.grid(alpha=0.2, linestyle="--", color="#0000FF")
     ax_Release.legend(loc="upper right")
 
-    ax_h.axhline(y=9.5, color='black', linestyle='--', label='Flooding threshold')
+    ax_h.axhline(y=9.5, color="black", linestyle="--", label="Flooding threshold")
     ax_h.set_xlabel("")
     ax_h.set_ylabel("Water level in Hanoi (cm)")
     ax_h.grid(alpha=0.2, linestyle="--", color="#0000FF")
