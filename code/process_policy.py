@@ -39,15 +39,6 @@ def plot_policy(
     max_releases = [max_release(s, sys_params) for s in s_levels]
     min_releases = [min_release(s, sys_params) for s in s_levels]
 
-
-    fig = plt.figure(figsize=(12, 8))
-    plt.rc("font", size=14)  # Default font size
-    plt.rc("axes", titlesize=14)  # Title font size
-    plt.rc("axes", labelsize=14)  # Axes labels font size
-    plt.rc("xtick", labelsize=14)  # X-tick labels font size
-    plt.rc("ytick", labelsize=14)  # Y-tick labels font size
-    plt.rc("legend", fontsize=14)  # Legend font size
-
     for i, policy in enumerate(policies):
         policy_release = [
             std_operating_policy(h, policy, debug=False) for h in h_levels
@@ -116,8 +107,6 @@ def plot_policy_ts(
     - None
     """
 
-
-    fig = plt.figure(figsize=(12, 8))
     layout = (2, 2)
     ax_ReservoirLevel = plt.subplot2grid(layout, (0, 0), colspan=2)
     ax_Release = plt.subplot2grid(layout, (1, 0), colspan=1)
