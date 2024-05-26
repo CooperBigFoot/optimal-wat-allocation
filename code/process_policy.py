@@ -34,7 +34,7 @@ def plot_policy(
     - None
     """
 
-    h_levels = [i for i in range(75, 125, 1)]
+    h_levels = np.arange(75, 125, 0.5)
     s_levels = [level_to_storage(h, sys_params) for h in h_levels]
     max_releases = [max_release(s, sys_params) for s in s_levels]
     min_releases = [min_release(s, sys_params) for s in s_levels]
