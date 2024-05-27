@@ -12,6 +12,7 @@ from sim import (
     level_to_storage,
 )
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import seaborn as sns
 
 
@@ -39,6 +40,7 @@ def plot_policy(
     max_releases = [max_release(s, sys_params) for s in s_levels]
     min_releases = [min_release(s, sys_params) for s in s_levels]
 
+    plt.figure(figsize=(10, 6))
     for i, policy in enumerate(policies):
         policy_release = [
             std_operating_policy(h, policy, debug=False) for h in h_levels
@@ -113,35 +115,54 @@ def plot_policy_ts(
     ax_h = plt.subplot2grid(layout, (1, 1), colspan=1)
 
     for policy, name in zip(policies, names):
+
         ax_ReservoirLevel.plot(
             policy.index, policy["ReservoirLevel"], label=f"Reservoir Level: {name}"
         )
+
         ax_Release.plot(
-            policy.index, policy["Release"], label=f"Release: {name}", alpha=0.7
+            policy.index, policy["Release"], alpha=0.7, label=f"Release: {name}"
         )
+
         ax_h.plot(
             policy.index,
             policy["WaterLevelHanoi"],
-            label=f"Hanoi Water Level: {name}",
             alpha=0.7,
+            label=f"Water Level in Hanoi: {name}",
         )
+
+    for ax in [ax_ReservoirLevel, ax_Release, ax_h]:
+        ax.grid(alpha=0.2, linestyle="--", color="#0000FF")
 
     ax_ReservoirLevel.set_xlabel("")
     ax_ReservoirLevel.set_ylabel("Monthly Reservoir Level (m)")
-    ax_ReservoirLevel.grid(alpha=0.2, linestyle="--", color="#0000FF")
-    ax_ReservoirLevel.legend(loc="upper right")
+    ax_ReservoirLevel.set_title("Reservoir Level")
 
     ax_Release.set_xlabel("")
     ax_Release.set_ylabel("Monthly Release (m$^3$/s)")
-    ax_Release.grid(alpha=0.2, linestyle="--", color="#0000FF")
-    ax_Release.legend(loc="upper right")
+    ax_Release.set_title("Release")
 
     ax_h.axhline(y=9.5, color="black", linestyle="--", label="Flooding threshold")
     ax_h.set_xlabel("")
     ax_h.set_ylabel("Water level in Hanoi (cm)")
-    ax_h.grid(alpha=0.2, linestyle="--", color="#0000FF")
-    ax_h.legend(loc="upper right")
+    ax_h.set_title("Water Level")
 
+    custom_legend = {
+        "blue": "Compromise Policy",
+        "orange": "Flood Policy",
+        "green": "Hydro Policy",
+    }
+
+    if len(policies) == 1:
+        ax_ReservoirLevel.legend(loc="upper right")
+        ax_Release.legend(loc="upper right")
+        ax_h.legend(loc="upper right")
+    else:
+        legend_elements = [
+            Line2D([0], [0], color=color, lw=2, label=label)
+            for color, label in custom_legend.items()
+        ]
+        plt.legend(handles=legend_elements, bbox_to_anchor=(0.5, -0.15), ncol=3)
     sns.despine()
 
     if output_destination:
