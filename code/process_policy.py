@@ -115,7 +115,6 @@ def plot_policy_ts(
     ax_h = plt.subplot2grid(layout, (1, 1), colspan=1)
 
     for policy, name in zip(policies, names):
-
         ax_ReservoirLevel.plot(
             policy.index, policy["ReservoirLevel"], label=f"Reservoir Level: {name}"
         )
